@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 from fastapi import FastAPI
 import aiohttp
@@ -13,6 +14,10 @@ app = FastAPI()
 BASE_URL = os.getenv("INFLUX_URL")
 TOKEN = os.getenv("INFLUX_TOKEN")
 BUCKET = os.getenv("INFLUX_BUCKET")
+
+log = logging.getLogger("uvicorn")
+log.info(f"[SETUP] Serving interface to server {BASE_URL} with auth token {TOKEN} and default bucket {BUCKET}")
+
 
 @dataclass
 class PolynomialRegressionRequest:

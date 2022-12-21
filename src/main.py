@@ -68,7 +68,7 @@ def get_payload_query_4ever(bucket: str, device_id: str) -> str:
     # return f'from(bucket:"{bucket}")|> range(start: v.timeRangeStart, stop: v.timeRangeStop)|> filter(fn: (r) => r.device == "{device_id}")|>)'
 
 
-async def request_data(path: str, payload: dict | str) -> dict:
+async def request_data(path: str, payload: dict | str) -> list | dict:
     async with aiohttp.ClientSession(
             headers={
                 "Authorization": f"Bearer {TOKEN}",
@@ -77,12 +77,15 @@ async def request_data(path: str, payload: dict | str) -> dict:
             }) as session:
 
         async with session.post(url=path, data=payload) as resp:
-            csv_string = await resp.text()
-            csv_b = StringIO(csv_string)
-            df = pd.read_csv(csv_b)
-            df = df.drop(columns=["Unnamed: 0", "result", "table"])
-            result = df.to_dict(orient='list')
-            return result
+            try:
+                csv_string = await resp.text()
+                csv_b = StringIO(csv_string)
+                df = pd.read_csv(csv_b)
+                df = df.drop(columns=["Unnamed: 0", "result", "table"])
+                result = df.to_dict(orient='list')
+                return result
+            except:
+                return dict()
 
 
 @app.post("/organizations/{orgId}/export-sensor-data/devices/{deviceId}")

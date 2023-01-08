@@ -1,6 +1,8 @@
 import datetime
 import logging
 import os
+import traceback
+
 from fastapi import FastAPI
 import aiohttp
 from dataclasses import dataclass
@@ -63,7 +65,7 @@ def get_payload_query_since(bucket: str, since: int, device_id: str) -> str:
 
 
 def get_payload_query_4ever(bucket: str, device_id: str) -> str:
-    return f'from(bucket:"{bucket}") |> range(start: 0)'
+    return f'from(bucket:"{bucket}") |> range(start: 0) |> filter(fn: (r) => r.device == "{device_id}")'
 
     # return f'from(bucket:"{bucket}")|> range(start: v.timeRangeStart, stop: v.timeRangeStop)|> filter(fn: (r) => r.device == "{device_id}")|>)'
 
@@ -75,17 +77,31 @@ async def request_data(path: str, payload: dict | str) -> list | dict:
                 "Content-Type": "application/vnd.flux"
 
             }) as session:
-
+        log.info(f"Request POST url={path} payload={payload}")
         async with session.post(url=path, data=payload) as resp:
             try:
                 csv_string = await resp.text()
                 csv_b = StringIO(csv_string)
                 df = pd.read_csv(csv_b)
-                df = df.drop(columns=["Unnamed: 0", "result", "table"])
-                result = df.to_dict(orient='list')
+                log.info(f"Received DataFrame \n{df}\n")
+                df = df.rename(columns={'_time': 'timestamp', '_value': 'value'})
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df['datetime'] = df['timestamp'].dt.strftime("%d/%m/%Y %H:%M")
+                datetimesplit = df['datetime'].str.split(expand=True)
+                df['date'] = datetimesplit[0]
+                df['time'] = datetimesplit[1]
+                data = df[['datetime', 'time', 'date', 'value', 'device']].to_dict(orient='records')
+                dates = df['date'].unique().tolist()
+                devices = df['device'].unique().tolist()
+                result = {
+                    'data': data,
+                    'dates': dates,
+                    'devices': devices
+                }
                 return result
-            except:
-                return dict()
+            except Exception as e:
+                log.exception(e)
+                return []
 
 
 @app.post("/organizations/{orgId}/export-sensor-data/devices/{deviceId}")

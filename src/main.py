@@ -86,6 +86,10 @@ async def request_data(path: str, payload: dict | str) -> list | dict:
                 log.info(f"Received DataFrame \n{df}\n")
                 df = df.rename(columns={'_time': 'timestamp', '_value': 'value'})
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df['timestamp'] = df['timestamp'] - pd.offsets.Hour(3)
+                # timezone = 'America/Sao_Paulo'
+                # df['timestamp'] = df['timestamp'].dt.convert(timezone)
+
                 df['datetime'] = df['timestamp'].dt.strftime("%d/%m/%Y %H:%M")
                 datetimesplit = df['datetime'].str.split(expand=True)
                 df['date'] = datetimesplit[0]
